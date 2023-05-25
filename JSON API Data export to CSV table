@@ -1,0 +1,29 @@
+import pandas as pd
+import requests
+from openpyxl import Workbook
+
+# API endpoint URL
+api_url = "http://ssscmsapi.samparksmartshala.org:8082/dashboardapis/sss_videos_used_by_subject_class?state=HP&startdate=2023-04-01&enddate=2023-04-30"
+
+# Send a GET request to the API
+response = requests.get(api_url)
+
+# Check if the request was successful
+if response.status_code == 200:
+    # Parse the JSON response
+    json_data = response.json()
+
+    # Flatten the JSON data into a DataFrame
+    df = pd.json_normalize(json_data)
+
+    # Transpose the DataFrame
+    df_transposed = df.T
+
+    # Save DataFrame to Excel
+    excel_file = "data.xlsx"
+    with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
+        df_transposed.to_excel(writer, index=True, header=False, sheet_name='Data')
+        writer.save()
+    print(f"Data saved to {excel_file}")
+else:
+    print("Error: Failed to retrieve data from the API.")
