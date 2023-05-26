@@ -1,0 +1,38 @@
+import pandas as pd
+import requests
+from openpyxl import Workbook
+
+# API endpoint URL
+api_url = "http://ssscmsapi.samparksmartshala.org:8082/dashboardapis/sss_resources_used_by_subject_doctype?state=RJ&startdate=2023-04-01&enddate=2023-04-30"
+
+# Send a GET request to the API
+response = requests.get(api_url)
+
+# Check if the request was successful
+if response.status_code == 200:
+    # Parse the JSON response
+    json_data = response.json()
+
+    # Create a list to store the rows of the table
+    table_rows = []
+
+    # Iterate over the JSON data and extract the desired information
+    for key, value in json_data.items():
+        name = value['name']
+        resources_used_by_subject = value['resources_used_by_subject']
+        for subject, sub_subjects in resources_used_by_subject.items():
+            for sub_subject, sub_subject_data in sub_subjects.items():
+                if sub_subject != 'TOTAL':
+                    table_rows.append([name, subject, sub_subject, 'total', sub_subject_data['TOTAL']])
+
+    # Create a DataFrame from the table rows
+    df = pd.DataFrame(table_rows, columns=['Name', 'Subject', 'Sub-Subject', 'Total', 'Count'])
+
+    # Save DataFrame to Excel
+    excel_file = "data.xlsx"
+    with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Data')
+        writer.save()
+    print(f"Data saved to {excel_file}")
+else:
+    print("Error: Failed to retrieve data from the API.")
