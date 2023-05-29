@@ -1,0 +1,57 @@
+#@title JSON data extraction month by month all states
+import pandas as pd
+import requests
+
+# API endpoint URL
+api_url = "http://ssscmsapi.samparksmartshala.org:8082/dashboardapis/sss_resources_used_by_subject_doctype"
+
+# Define the start and end dates for each month
+months = [
+    {"start_date": "2023-01-01", "end_date": "2023-01-31"},
+    {"start_date": "2023-02-01", "end_date": "2023-02-28"},
+    {"start_date": "2023-03-01", "end_date": "2023-03-31"}
+]
+
+# Define the states to extract data for
+states = ["HP", "HR", "UK", "UP", "RJ", "JH", "MH", "CG"]
+
+# Initialize an empty list to store the extracted data
+api_data = []
+
+# Iterate over the months
+for month in months:
+    # Iterate over the states
+    for state in states:
+        # Send a GET request to the API with the specified parameters
+        response = requests.get(api_url, params={'state': state, 'startdate': month['start_date'], 'enddate': month['end_date']})
+
+        # Check if the request was successful
+        if response.status_code == 200:
+            # Parse the JSON response
+            json_data = response.json()
+
+            # Extract the required columns from the API response
+            for state_id, state_data in json_data.items():
+                if 'resources_used_by_subject' in state_data:
+                    for subject, subject_data in state_data['resources_used_by_subject'].items():
+                        for subtype, subtype_data in subject_data.items():
+                            if subtype != 'TOTAL':
+                                api_data.append([
+                                    month['start_date'][5:7],  # Extract month from start date
+                                    month['start_date'][:4],  # Extract year from start date
+                                    state,  # Set the state code
+                                    state_data['name'],
+                                    subject,
+                                    subtype,
+                                    str(subtype_data['TOTAL'])  # Convert to string
+                                ])
+        else:
+            print(f"Error: Failed to retrieve data for {state} ({month['start_date']} - {month['end_date']})")
+
+# Create a DataFrame from the extracted data
+df = pd.DataFrame(api_data, columns=['Month', 'Year', 'State', 'Name', 'Resource Subject', 'Resource Type', 'Total'])
+
+# Save the DataFrame to an Excel file
+excel_file = "data.xlsx"
+df.to_excel(excel_file, index=False)
+print(f"Data saved to {excel_file}")
