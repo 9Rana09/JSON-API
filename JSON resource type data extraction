@@ -1,4 +1,4 @@
-#@title Final Resource type extraction one state month by month
+#@title JSON Resource type all states month on month
 import pandas as pd
 import requests
 from openpyxl import Workbook
@@ -13,58 +13,66 @@ end_date = pd.to_datetime("2023-05-31")
 # Create an empty DataFrame to store the merged data
 merged_df = pd.DataFrame()
 
-# Iterate over the desired period
-for date in pd.date_range(start=start_date, end=end_date, freq='MS'):
-    # Format the start and end dates
-    start = date.strftime('%Y-%m-%d')
-    end = (date + pd.DateOffset(months=1) - pd.DateOffset(days=1)).strftime('%Y-%m-%d')
+# Specify the states to extract data for
+states = ['UP', 'UK', 'HP', 'HR', 'RJ', 'CG', 'MH', 'JH']
 
-    # Send a GET request to the API with the specific start and end dates
-    response = requests.get(api_url, params={'state': 'RJ', 'startdate': start, 'enddate': end})
+# Iterate over the desired states
+for state_code in states:
+    # Iterate over the desired period
+    for date in pd.date_range(start=start_date, end=end_date, freq='MS'):
+        # Format the start and end dates
+        start = date.strftime('%Y-%m-%d')
+        end = (date + pd.DateOffset(months=1) - pd.DateOffset(days=1)).strftime('%Y-%m-%d')
 
-    # Check if the request was successful
-    if response.status_code == 200:
-        # Parse the JSON response
-        json_data = response.json()
+        # Send a GET request to the API with the specific state code, start date, and end date
+        response = requests.get(api_url, params={'state': state_code, 'startdate': start, 'enddate': end})
 
-        # Extract the required columns from the API response
-        api_data = []
-        for state, state_data in json_data.items():
-            state_name = state_data.get('name', '')  # Get the "name" value or set it to an empty string if not present
-            for subject, subject_data in state_data['resources_used_by_subject'].items():
-                subject_total = subject_data.get('TOTAL', 0)  # Get the total value for the subject
-                api_data.append([
-                    date.strftime('%Y'),
-                    date.strftime('%m'),
-                    'RJ',  # Set the state code to "RJ"
-                    state_name,
-                    subject,
-                    'TOTAL',  # Resource name for the total
-                    subject_total
-                ])
-                for subtype, subtype_data in subject_data.items():
-                    if subtype != 'TOTAL':
-                        for resource, value in subtype_data.items():
-                            api_data.append([
-                                date.strftime('%Y'),
-                                date.strftime('%m'),
-                                'RJ',  # Set the state code to "RJ"
-                                state_name,
-                                subject,
-                                subtype,
-                                resource,
-                                value
-                            ])
+        # Check if the request was successful
+        if response.status_code == 200:
+            # Parse the JSON response
+            json_data = response.json()
 
-        # Create a DataFrame from the extracted data
-        df = pd.DataFrame(api_data, columns=['Year', 'Month', 'State Code', 'State Name', 'Subject', 'Subtype', 'Resource', 'Value'])
+            # Extract the required columns from the API response
+            api_data = []
+            for state, state_data in json_data.items():
+                state_name = state_data.get('name', '')  # Get the "name" value or set it to an empty string if not present
+                
+                if 'resources_used_by_subject' in state_data:
+                    subjects_data = state_data['resources_used_by_subject']
+                    for subject, subject_data in subjects_data.items():
+                        subject_total = subject_data.get('TOTAL', 0)  # Get the total value for the subject
+                        api_data.append([
+                            date.strftime('%Y'),
+                            date.strftime('%m'),
+                            state_code,
+                            state_name,
+                            subject,
+                            'TOTAL',  # Resource name for the total
+                            subject_total
+                        ])
+                        for subtype, subtype_data in subject_data.items():
+                            if subtype != 'TOTAL':
+                                for resource, value in subtype_data.items():
+                                    api_data.append([
+                                        date.strftime('%Y'),
+                                        date.strftime('%m'),
+                                        state_code,
+                                        state_name,
+                                        subject,
+                                        subtype,
+                                        resource,
+                                        value
+                                    ])
 
-        # Merge the extracted data with the existing merged DataFrame
-        merged_df = pd.concat([merged_df, df], ignore_index=True)
-    else:
-        print(f"Error: Failed to retrieve data for {start} - {end}")
+            # Create a DataFrame from the extracted data
+            df = pd.DataFrame(api_data, columns=['Year', 'Month', 'State Code', 'State Name', 'Subject', 'Subtype', 'Resource', 'Value'])
+
+            # Merge the extracted data with the existing merged DataFrame
+            merged_df = pd.concat([merged_df, df], ignore_index=True)
+        else:
+            print(f"Error: Failed to retrieve data for {start} - {end} and state {state_code}")
 
 # Save the merged DataFrame to an Excel file
-excel_file = "resourcetype.xlsx"
+excel_file = "resourceallstates.xlsx"
 merged_df.to_excel(excel_file, index=False)
 print(f"Data saved to {excel_file}")
